@@ -3,8 +3,6 @@ from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel
 
-from app.database.schema import Inventories, Items
-
 
 class Gender(str, Enum):
     male = "male"
@@ -23,7 +21,7 @@ class OrderStatus(str, Enum):
 
 
 class Token(BaseModel):
-    Authorization: str
+    authorization: str
 
 
 class UserToken(BaseModel):
@@ -47,6 +45,13 @@ class Item(ItemBase):
     id: int
     author: int
     upload: str
+
+    class Config:
+        orm_mode = True
+
+
+class ItemURL(BaseModel):
+    url: str
 
     class Config:
         orm_mode = True
@@ -91,8 +96,8 @@ class Profile(BaseModel):
 
 class TradeRegister(BaseModel):
     item: int
-    order_price: float
-    immediate_price: float
+    orderPrice: float
+    immediatePrice: float
 
 
 class Trade(BaseModel):
@@ -128,7 +133,7 @@ class Order(BaseModel):
 
 class Attendance(BaseModel):
     profile: int
-    attendance_date: datetime
+    attendanceDate: datetime
     status: bool = True
 
     class Config:

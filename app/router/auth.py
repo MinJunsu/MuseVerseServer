@@ -51,20 +51,8 @@ async def login(info: UserLogin):
         Exception()
 
     return dict(
-        Authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'password', 'gender'}), expires_delta=24)}"
+        authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'password', 'gender'}), expires_delta=24)}"
     )
-
-
-@router.post('/attendance', status_code=status.HTTP_200_OK, response_model=Attendance)
-async def create_attendance(request: Request, session: Session = Depends(db.session)):
-    profile = Profiles.get(user=request.user.id).id
-    today = date.today()
-
-    # * Already exists Error
-    if Attendances.filter(profile=profile, attendance_date=today).count() > 0:
-        raise Exception()
-
-    return Attendances.create(session=session, auto_commit=True, profile=profile, attendance_date=today)
 
 
 def create_profile(user: int, nickname: str, money: float, session: Session):
