@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from app.database.conn import db
-from app.database.schema import Profiles, Trades, Inventories
-from app.models import TradeRegister, Trade
+from app.database.schema import Profiles, Trades, Inventories, Items
+from app.models import TradeRegister, Trade, ItemURL
 
 
 router = APIRouter()
@@ -63,6 +63,17 @@ async def delete_trade(request: Request, item_id: int):
 @router.get('/trades', status_code=status.HTTP_200_OK, response_model=list[Trade])
 async def get_trades():
     return Trades.filter(expire__gte=datetime.now()).all()
+
+
+@router.get('/trades/images', status_code=status.HTTP_200_OK, response_model=list[ItemURL])
+async def get_trades_images():
+    elements = Trades.filter(expire__gte=datetime.now()).all()
+    images: list[Items] = []
+    for element in elements:
+        item = Items()
+        item.url = f'https://themestorage.blob.core.windows.net/{Items.get(id=element.item).upload}'
+        images.append(item)
+    return images
 
 
 @router.get('/trades/me', status_code=status.HTTP_200_OK, response_model=list[Trade])

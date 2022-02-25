@@ -213,8 +213,9 @@ class Orders(Base, BaseMixin):
 
 class Exhibitions(Base, BaseMixin):
     __tablename__ = 'exhibitions'
-    hall = Column(Enum('First', 'Second', 'Third', name='hall'), nullable=False)
+    item = Column(Integer, ForeignKey('items.id'), nullable=False)
     trade = Column(Integer, ForeignKey('trades.id'), nullable=True)
+    hall = Column(Integer, nullable=False)
     num = Column(Integer, nullable=False)
     price = Column(Integer, nullable=False)
     expire = Column(DateTime, nullable=True)

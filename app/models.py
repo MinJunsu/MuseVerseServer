@@ -138,3 +138,30 @@ class Attendance(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class Exhibition(BaseModel):
+    item: Item
+    trade: Trade | None
+    hall: int
+    num: int
+    expire: datetime | None
+    max_width: int
+    max_height: int
+
+    class Config:
+        orm_mode = True
+
+
+class ExhibitionRegister(BaseModel):
+    item: int
+    trade: int | None
+    hall: int
+    num: int
+    max_width: int | None
+    max_height: int | None
+
+
+class ExhibitionImage(BaseModel):
+    hall: int
+    num: int
