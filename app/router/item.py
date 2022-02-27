@@ -4,11 +4,12 @@ from fastapi import APIRouter, status, Depends, UploadFile, Form
 from sqlalchemy.orm import Session
 
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from app.common.consts import AZURE_STORAGE_KEY, AZURE_STORAGE_ACCESS
 from app.database.conn import db
 from app.database.schema import Items, Profiles, Inventories, Orders
-from app.models import Order, Item, ItemURL
+from app.models import Order, Item, ItemURL, ExhibitionItem
 from app.utils.azure_storage import upload_local_file
 
 router = APIRouter()
@@ -25,15 +26,26 @@ async def create_item(request: Request, file: UploadFile, name: str = Form(...),
     return item
 
 
-@router.get('/item/{item_id}/image', status_code=status.HTTP_200_OK, response_model=ItemURL)
-async def get_item_url(item_id: int):
+@router.get('/item/{item_id}', status_code=status.HTTP_200_OK, response_model=ExhibitionItem)
+async def get_item(item_id: int):
+    item = Items.get(id=item_id)
+    if item is None:
+        raise Exception()
+
+    item.author = Profiles.get(id=item.author).nickname
+
+    return item
+
+
+@router.get('/item/{item_id}/image', status_code=status.HTTP_301_MOVED_PERMANENTLY, response_model=ItemURL)
+async def get_item_by_url(item_id: int):
     # * Item does not exists Error
     if Items.filter(id=item_id).count() == 0:
         raise Exception()
 
     item = Items.get(id=item_id)
-    item.url = f'https://themestorage.blob.core.windows.net/{item.upload}'
-    return item
+    url = f'https://themestorage.blob.core.windows.net/{item.upload}'
+    return RedirectResponse(url=url)
 
 
 @router.get('/items', status_code=status.HTTP_200_OK, response_model=list[Item])

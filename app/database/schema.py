@@ -53,6 +53,7 @@ class BaseMixin:
         """
         session = next(db.session())
         query = session.query(cls)
+        cls._q = query
         for key, val in kwargs.items():
             col = getattr(cls, key)
             query = query.filter(col == val)

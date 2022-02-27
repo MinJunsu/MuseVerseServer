@@ -41,6 +41,16 @@ class ItemBase(BaseModel):
     price: float = 0
 
 
+class SimpleItem(BaseModel):
+    id: int
+    name: str
+    price: float
+    upload: str
+
+    class Config:
+        orm_mode = True
+
+
 class Item(ItemBase):
     id: int
     author: int
@@ -50,8 +60,9 @@ class Item(ItemBase):
         orm_mode = True
 
 
-class ExhibitionItem(ItemBase):
+class ExhibitionItem(BaseModel):
     id: int
+    name: str
     author: str
     upload: str
 
@@ -88,8 +99,18 @@ class UserBase(BaseModel):
 
 
 class Inventory(BaseModel):
-    owner: int
-    item: int
+    id: int
+    upload: str
+
+    class Config:
+        orm_mode = True
+
+
+class InventoriesBase(BaseModel):
+    inventories: list[Inventory]
+
+    class Config:
+        orm_mode = True
 
 
 class Profile(BaseModel):
@@ -107,6 +128,21 @@ class TradeRegister(BaseModel):
     item: int
     orderPrice: float
     immediatePrice: float
+
+
+class ExhibitionInventory(BaseModel):
+    item: SimpleItem
+    expire: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class ExhibitionInventories(BaseModel):
+    exhibitionInventories: list[ExhibitionInventory]
+
+    class Config:
+        orm_mode = True
 
 
 class Trade(BaseModel):

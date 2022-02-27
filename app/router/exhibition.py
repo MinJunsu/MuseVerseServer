@@ -45,7 +45,7 @@ async def get_exhibition(hall: int, num: int):
     return exhibition
 
 
-@router.get('/exhibition/image/{hall}/{num}', status_code=status.HTTP_200_OK)
+@router.get('/exhibition/image/{hall}/{num}', status_code=status.HTTP_301_MOVED_PERMANENTLY)
 async def get_exhibition_image(hall: int, num: int):
     exhibition = Exhibitions.get(hall=hall, num=num)
     # * 존재 하지 않은 홀
@@ -61,7 +61,3 @@ async def get_exhibition_image(hall: int, num: int):
     return RedirectResponse(url=f'https://themestorage.blob.core.windows.net/{item.upload}')
 
 # TODO: 이미지 드로잉 작품 PNG 파일 저장 및 전송 시스템 구축
-
-# TODO: Register Form 연결
-# TODO: Trade Form 연결
-
