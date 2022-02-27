@@ -50,6 +50,15 @@ class Item(ItemBase):
         orm_mode = True
 
 
+class ExhibitionItem(ItemBase):
+    id: int
+    author: str
+    upload: str
+
+    class Config:
+        orm_mode = True
+
+
 class ItemURL(BaseModel):
     url: str
 
@@ -105,7 +114,18 @@ class Trade(BaseModel):
     owner: int
     item: int
     expire: datetime
-    order_price: float
+    immediate_price: float
+    is_sell: bool
+
+    class Config:
+        orm_mode = True
+
+
+class ExhibitionTrade(BaseModel):
+    id: int
+    owner: str
+    item: int
+    expire: datetime
     immediate_price: float
     is_sell: bool
 
@@ -115,9 +135,8 @@ class Trade(BaseModel):
 
 class OrderRegister(BaseModel):
     item: int
-    price: float
     trade: int
-    status: OrderStatus = "order"
+    status: OrderStatus = "buy"
 
 
 class Order(BaseModel):
@@ -141,11 +160,10 @@ class Attendance(BaseModel):
 
 
 class Exhibition(BaseModel):
-    item: Item
-    trade: Trade | None
+    item: ExhibitionItem
+    trade: ExhibitionTrade | None
     hall: int
     num: int
-    expire: datetime | None
     max_width: int
     max_height: int
 

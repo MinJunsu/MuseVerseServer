@@ -16,7 +16,7 @@ from app.models import UserRegister, Token, UserToken, UserLogin, Attendance
 router = APIRouter()
 
 
-@router.post('/register', status_code=status.HTTP_201_CREATED, response_model=Token)
+@router.post('/auth/register', status_code=status.HTTP_201_CREATED, response_model=Token)
 async def register(info: UserRegister, session: Session = Depends(db.session)):
     is_exist = await is_username_exist(info.username)
 
@@ -33,10 +33,10 @@ async def register(info: UserRegister, session: Session = Depends(db.session)):
     create_profile(user=user.id, nickname=info.nickname, money=0, session=session)
 
     return dict(
-        Authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'pw'}), )}")
+        authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'pw'}), )}")
 
 
-@router.post('/login', status_code=status.HTTP_200_OK, response_model=Token)
+@router.post('/auth/login', status_code=status.HTTP_200_OK, response_model=Token)
 async def login(info: UserLogin):
     is_exist = await is_username_exist(info.username)
 
