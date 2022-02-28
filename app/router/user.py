@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 from starlette.authentication import UnauthenticatedUser
 
-from app.database.schema import Profiles, Inventories, Attendances, Items, Trades, db
-from app.models import Profile, Attendance, InventoriesBase, ExhibitionInventories
+from app.database.schema import Profiles, Inventories, Attendances, Items, Orders, Trades, db
+from app.models import Profile, Attendance, InventoriesBase, ExhibitionInventories, ItemHistory
 
 
 router = APIRouter()
@@ -17,10 +17,25 @@ router = APIRouter()
 @router.get('/accounts/me', status_code=status.HTTP_200_OK, response_model=Profile)
 async def get_me(request: Request):
     profile = Profiles.get(user=request.user.id)
-    items = Items.filter(id__in=[element.item for element in Inventories.filter(
-        owner=profile.id).all()]).all()
-    profile.inventories = items
     return profile
+
+
+@router.get('/accounts/history/buy', status_code=status.HTTP_200_OK, response_model=ItemHistory)
+async def get_my_buy_history(request: Request):
+    profile = Profiles.get(user=request.user.id)
+    items = Items.filter(id__in=list(set([element.item for element in Orders.filter(buyer=profile.id).all()]))).all()
+    return {
+        'histories': items
+    }
+
+
+@router.get('/accounts/history/sell', status_code=status.HTTP_200_OK, response_model=ItemHistory)
+async def get_my_sell_history(request: Request):
+    profile = Profiles.get(user=request.user.id)
+    items = Items.filter(id__in=list(set([element.item for element in Trades.filter(owner=profile.id).all()]))).all()
+    return {
+        'histories': items
+    }
 
 
 @router.get('/accounts/inventories', status_code=status.HTTP_200_OK, response_model=InventoriesBase)

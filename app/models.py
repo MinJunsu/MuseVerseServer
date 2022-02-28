@@ -44,8 +44,16 @@ class ItemBase(BaseModel):
 class SimpleItem(BaseModel):
     id: int
     name: str
+    created_at: datetime
     price: float
     upload: str
+
+    class Config:
+        orm_mode = True
+
+
+class ItemHistory(BaseModel):
+    histories: list[SimpleItem]
 
     class Config:
         orm_mode = True
@@ -118,7 +126,6 @@ class Profile(BaseModel):
     user: int
     nickname: str
     money: float
-    inventories: list[Item] | None
 
     class Config:
         orm_mode = True
