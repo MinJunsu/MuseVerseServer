@@ -216,11 +216,10 @@ class Exhibition(BaseModel):
 
 class ExhibitionRegister(BaseModel):
     item: int
-    trade: int | None
     hall: int
     num: int
-    max_width: int | None
-    max_height: int | None
+    order_price: float | None
+    immediate_price: float
 
 
 class ExhibitionImage(BaseModel):

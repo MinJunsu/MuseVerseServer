@@ -1,94 +1,111 @@
-from datetime import datetime, timedelta
-
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, HTTPException
 
 from sqlalchemy.orm import Session
+from starlette.authentication import UnauthenticatedUser
 from starlette.requests import Request
 
 from app.database.conn import db
-from app.database.schema import Profiles, Trades, Inventories, Items
-from app.models import TradeRegister, Trade, ItemURL
+from app.models.trade import TradeCreate, TradeBase, TradeDetailBase, TradesBase, TradePriceChange
+from app.queries.auth import get_profile_by_user, get_profile_nickname_by_id
+from app.queries.exhibition import remove_exhibition, get_exhibition_by_trade
+from app.queries.item import get_item_by_id, modify_inventory
+from app.queries.trade import (
+    is_item_exist, is_trade_exist, is_seller, create_trade, extend_trade_expire, get_trade_by_id, get_trade_list,
+    buy_trade_item, remove_trade, change_trade_price
+)
+from app.queries.item import is_item_owner
 
 
 router = APIRouter()
 
 
-@router.post('/trade', status_code=status.HTTP_201_CREATED, response_model=Trade)
-async def trade(request: Request, info: TradeRegister, session: Session = Depends(db.session)):
-    owner = Profiles.get(user=request.user.id).id
+@router.post('/trade', status_code=status.HTTP_201_CREATED, response_model=TradeBase)
+async def post_trade(request: Request, info: TradeCreate, session: Session = Depends(db.session)):
+    seller = get_profile_by_user(user=request.user.id, session=session)
 
-    # * Item already exists Error
-    if await is_exist_item(info.item):
-        Exception()
+    if isinstance(request.user, UnauthenticatedUser):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Login please')
 
-    # * Trade item not owner Error
-    if not await is_owner(info.item, owner):
-        Exception()
+    if is_item_exist(item=info.item, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Item already exists')
 
-    return Trades.create(session=session, auto_commit=Trade, owner=owner, item=info.item,
-                         order_price=info.order_price, immediate_price=info.immediate_price)
+    if not is_item_owner(owner=seller.id, item=info.item, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade item not owner')
 
-
-@router.get('/trade/{item_id}', status_code=status.HTTP_200_OK, response_model=Trade)
-async def get_trade_by_item(item_id: int):
-    return Trades.get(item=item_id)
+    trade = create_trade(info=info, seller=seller.id, session=session)
+    return trade
 
 
-@router.put('/trade/{item_id}/extend', status_code=status.HTTP_200_OK, response_model=Trade)
-async def extend_trade_expire(request: Request, item_id: int, extend_days: int = 14):
-    owner = Profiles.get(user=request.user.id).id
+@router.get('/trade/{trade_id}', status_code=status.HTTP_200_OK, response_model=TradeDetailBase)
+async def get_trade(trade_id: int, session: Session = Depends(db.session)):
+    if not is_trade_exist(trade=trade_id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade does not exist')
 
-    # * Trade item not owner Error
-    if not await is_owner(item_id, owner=owner):
-        Exception()
-
-    target = Trades.get(item=item_id)
-    target.expire = target.expire + timedelta(days=extend_days)
-    return target
+    trade = get_trade_by_id(trade=trade_id, session=session)
+    trade.seller = get_profile_nickname_by_id(profile=trade.seller, session=session)
+    trade.buyer = get_profile_nickname_by_id(profile=trade.buyer, session=session)
+    trade.item = get_item_by_id(item=trade.item, session=session)
+    return trade
 
 
-@router.delete('/trade/{item_id}', status_code=status.HTTP_202_ACCEPTED)
-async def delete_trade(request: Request, item_id: int):
-    owner = Profiles.get(user=request.user.id).id
+@router.delete('/trade/{trade_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_trade(request: Request, trade_id: int, session: Session = Depends(db.session)):
+    owner = get_profile_by_user(user=request.user.id, session=session)
 
-    # * Trade item not owner Error
-    if not await is_owner(item_id, owner=owner):
-        Exception()
+    if isinstance(request.user, UnauthenticatedUser):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Login please')
 
-    target = Trades.get(item=item_id)
-    target.delete(auto_commit=True)
+    if not is_trade_exist(trade=trade_id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade does not exist')
+
+    if not is_seller(trade=trade_id, buyer=owner.id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Can not delete other trade')
+
+    trade = remove_trade(trade=trade_id, session=session)
     return None
 
 
-@router.get('/trades', status_code=status.HTTP_200_OK, response_model=list[Trade])
-async def get_trades():
-    return Trades.filter(expire__gte=datetime.now()).all()
+@router.put('/trade/{trade_id}/buy', status_code=status.HTTP_202_ACCEPTED, response_model=TradeBase)
+async def put_trade_buy(request: Request, trade_id: int, session: Session = Depends(db.session)):
+    buyer = get_profile_by_user(user=request.user.id, session=session)
+
+    if isinstance(request.user, UnauthenticatedUser):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Login please')
+
+    if not is_trade_exist(trade=trade_id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade does not exist')
+
+    # if is_seller(trade=trade_id, buyer=buyer.id, session=session):
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Can not buy own item')
+
+    trade = buy_trade_item(trade=trade_id, buyer=buyer.id, session=session)
+    modify_inventory(owner=trade.seller, item=trade.item, buyer=buyer.id, session=session)
+    remove_exhibition(exhibition=get_exhibition_by_trade(trade_id, session=session).id, session=session)
+    return trade
 
 
-@router.get('/trades/images', status_code=status.HTTP_200_OK, response_model=list[ItemURL])
-async def get_trades_images():
-    elements = Trades.filter(expire__gte=datetime.now()).all()
-    images: list[Items] = []
-    for element in elements:
-        item = Items()
-        item.url = f'https://themestorage.blob.core.windows.net/{Items.get(id=element.item).upload}'
-        images.append(item)
-    return images
+@router.put('/trade/{trade_id}/extend', status_code=status.HTTP_202_ACCEPTED, response_model=TradeBase)
+async def put_trade_extend(trade_id: int, session: Session = Depends(db.session)):
+    if not is_trade_exist(trade=trade_id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade does not exist')
+
+    trade = extend_trade_expire(trade=trade_id, session=session)
+    return trade
 
 
-@router.get('/trades/me', status_code=status.HTTP_200_OK, response_model=list[Trade])
-async def get_my_trades(request: Request):
-    owner = Profiles.get(user=request.user.id).id
-    return Trades.filter(owner=owner).all()
+@router.put('/trade/{trade_id}/price', status_code=status.HTTP_202_ACCEPTED, response_model=TradeBase)
+async def put_trade_extend(trade_id: int, info: TradePriceChange, session: Session = Depends(db.session)):
+    if not is_trade_exist(trade=trade_id, session=session):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Trade does not exist')
+
+    trade = change_trade_price(trade=trade_id, price=info.price, session=session)
+    return trade
 
 
-async def is_owner(item: int, owner: int):
-    if Inventories.get(item=item).owner == owner:
-        return True
-    return False
-
-
-async def is_exist_item(item: int):
-    if Trades.get(item=item):
-        return True
-    return False
+@router.get('/trades', status_code=status.HTTP_200_OK, response_model=TradesBase)
+async def get_trades(request: Request, session: Session = Depends(db.session)):
+    is_exhibit = request.query_params.get('is_exhibit', False)
+    trades = get_trade_list(is_exhibit=is_exhibit, session=session)
+    return {
+        'histories': trades
+    }

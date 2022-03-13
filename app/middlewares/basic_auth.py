@@ -3,13 +3,16 @@ import logging
 import jwt
 import binascii
 
+from fastapi import Depends
+
 from starlette.authentication import (
     AuthCredentials, AuthenticationBackend, AuthenticationError, SimpleUser
 )
 from jwt.exceptions import ExpiredSignatureError, DecodeError
 
 from app.common.consts import JWT_SECRET, JWT_ALGORITHM
-from app.database.schema import Users, Profiles
+from app.database.conn import db
+from app.queries.auth import get_user_by_username
 
 
 class BasicAuthBackend(AuthenticationBackend):
@@ -28,8 +31,7 @@ class BasicAuthBackend(AuthenticationBackend):
 
         username = decoded.get('username')
 
-        # TODO: You'd want to verify the username and password here.
-        return AuthCredentials(["authenticated"]), Users.get(username=username)
+        return AuthCredentials(["authenticated"]), get_user_by_username(username=username, session=next(db.session()))
 
 
 async def token_decode(access_token):
@@ -40,7 +42,7 @@ async def token_decode(access_token):
     try:
         payload = jwt.decode(access_token, key=JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except ExpiredSignatureError as e:
-        pass
+        print(e)
     except DecodeError as e:
-        pass
+        print(e)
     return payload

@@ -8,7 +8,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from app.database.conn import Base, db
 from app.common.config import conf
 from app.middlewares.basic_auth import BasicAuthBackend
-from app.router import auth, item, user, trade, order, exhibition
+from app.router import auth, item, accounts, trade, exhibition, private
 
 
 API_KEY_HEADER = APIKeyHeader(name="Authorization", auto_error=False)
@@ -33,11 +33,11 @@ def create_app(base: FastAPI) -> FastAPI:
 
     # ! Router 추가
     base.include_router(auth.router, prefix='/api', tags=["Authorization"])
+    base.include_router(accounts.router, prefix='/api', tags=["Accounts"], dependencies=[Depends(API_KEY_HEADER)])
     base.include_router(exhibition.router, prefix='/api', tags=["Exhibition"])
-    base.include_router(user.router, prefix='/api', tags=["Account"], dependencies=[Depends(API_KEY_HEADER)])
     base.include_router(item.router, prefix='/api', tags=["Item"], dependencies=[Depends(API_KEY_HEADER)])
     base.include_router(trade.router, prefix='/api', tags=["Trade"], dependencies=[Depends(API_KEY_HEADER)])
-    base.include_router(order.router, prefix='/api', tags=["Order"], dependencies=[Depends(API_KEY_HEADER)])
+    base.include_router(private.router, prefix='/api', tags=["PrivateRooms"], dependencies=[Depends(API_KEY_HEADER)])
     return base
 
 

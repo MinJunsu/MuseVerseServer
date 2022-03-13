@@ -1,71 +1,56 @@
 import bcrypt
 import jwt
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
-from fastapi import status
+from fastapi import APIRouter, Depends, status, HTTPException
 
 from sqlalchemy.orm import Session
+from starlette.authentication import UnauthenticatedUser
 from starlette.requests import Request
 
 from app.common.consts import JWT_SECRET, JWT_ALGORITHM
-from app.database.schema import Users, Profiles, Attendances, db
-from app.models import UserRegister, Token, UserToken, UserLogin, Attendance
+from app.database.schema import db
+from app.models.auth import (
+    AuthLogin, AuthUserCreate, AuthUserBase, TokenBase
+)
+from app.queries.auth import (
+    get_user_by_username, is_username_exist, create_user, create_profile
+)
 
 
 router = APIRouter()
 
 
-@router.post('/auth/register', status_code=status.HTTP_201_CREATED, response_model=Token)
-async def register(info: UserRegister, session: Session = Depends(db.session)):
-    is_exist = await is_username_exist(info.username)
+@router.post('/auth/login', status_code=status.HTTP_200_OK, response_model=TokenBase)
+async def login(info: AuthLogin, session: Session = Depends(db.session)):
+    if not is_username_exist(info.username, session=session):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User does not exist')
 
-    # * Username or Password input Error
-    if not info.username or not info.password:
-        raise Exception()
-
-    # * User already exists Error
-    if is_exist:
-        raise Exception()
-
-    hashed_password = bcrypt.hashpw(info.password.encode('UTF-8'), bcrypt.gensalt()).decode('UTF-8')
-    user = Users.create(session=session, auto_commit=True, username=info.username, password=hashed_password)
-    create_profile(user=user.id, nickname=info.nickname, money=0, session=session)
-
-    return dict(
-        authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'pw'}), )}")
-
-
-@router.post('/auth/login', status_code=status.HTTP_200_OK, response_model=Token)
-async def login(info: UserLogin):
-    is_exist = await is_username_exist(info.username)
-
-    # * User not exists Error
-    if not is_exist:
-        Exception()
-    user = Users.get(username=info.username)
+    user = get_user_by_username(username=info.username, session=session)
     is_verified = bcrypt.checkpw(info.password.encode("UTF-8"), user.password.encode("UTF-8"))
 
+    print(f"UserInfo: {info}")
     # * Password not equal Error
     if not is_verified:
-        Exception()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Password does not match')
 
     return dict(
-        authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'password', 'gender'}), expires_delta=24)}"
+        authorization=f"Bearer {create_access_token(data=AuthUserBase.from_orm(user).dict(), expires_delta=24)}"
     )
 
 
-def create_profile(user: int, nickname: str, money: float, session: Session):
-    profile = Profiles.create(session=session, auto_commit=True, user=user, nickname=nickname, money=money)
-    if profile:
-        return True
-    return False
+@router.post('/auth/register', status_code=status.HTTP_201_CREATED, response_model=TokenBase)
+async def register(info: AuthUserCreate, session: Session = Depends(db.session)):
+    if not info.username or not info.password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='You have to send all params')
 
+    info.password = bcrypt.hashpw(info.password.encode('UTF-8'), bcrypt.gensalt()).decode('UTF-8')
+    user = create_user(info=info, session=session)
+    create_profile(user=user.id, nickname=info.nickname, session=session)
 
-async def is_username_exist(username: str):
-    if Users.get(username=username):
-        return True
-    return False
+    return dict(
+        authorization="Bearer " + create_access_token(data=AuthUserBase.from_orm(user).dict(), expires_delta=24)
+    )
 
 
 def create_access_token(*, data: dict = None, expires_delta: int = None):
