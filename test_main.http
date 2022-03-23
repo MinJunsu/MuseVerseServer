@@ -1,0 +1,23 @@
+POST http://0.0.0.0:8080/api/login
+Content-Type: application/json
+
+{
+  "username": "sunsuking",
+  "password": "1234"
+}
+
+###
+# Test your FastAPI endpoints
+
+POST http://0.0.0.0:8080/api/register
+Content-Type: application/json
+
+{
+    "email": "null",
+    "username": "sunsuking",
+    "password": "1234",
+    "gender": "male"
+}
+
+###
+
